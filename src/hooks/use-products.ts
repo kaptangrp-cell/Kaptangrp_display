@@ -9,9 +9,11 @@ export function productsQuery() {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return (data ?? []) as unknown as Product[];
+      return data ?? [];
     },
   };
 }

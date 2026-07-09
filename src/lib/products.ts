@@ -2,7 +2,7 @@ import messenger from "@/assets/product-messenger.jpg";
 import tote from "@/assets/product-tote.jpg";
 import briefcase from "@/assets/product-briefcase.jpg";
 
-export interface Product {
+export type Product = {
   id: string;
   image_url: string;
   category: string;
@@ -21,7 +21,7 @@ export interface Product {
   notes_en: string | null;
   notes_de: string | null;
   sort_order: number;
-}
+};
 
 const seedMap: Record<string, string> = {
   "/src/assets/product-messenger.jpg": messenger,
