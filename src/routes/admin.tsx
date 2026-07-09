@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AdminCustomers } from "@/components/admin-customers";
@@ -46,7 +46,6 @@ function AdminPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const qc = useQueryClient();
-
   const [checked, setChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editing, setEditing] = useState<Draft | null>(null);
@@ -60,15 +59,12 @@ function AdminPage() {
         return;
       }
 
-      const userId = sessionData.session.user.id;
-
       const { data, error } = await supabase.rpc("has_role", {
-        _user_id: userId,
+        _user_id: sessionData.session.user.id,
         _role: "admin",
       });
 
       if (error) {
-        console.error(error);
         toast.error(error.message);
         setIsAdmin(false);
       } else {
@@ -88,24 +84,25 @@ function AdminPage() {
     navigate({ to: "/auth", replace: true });
   };
 
-  if (!checked) {
-    return <div className="pt-32 text-center text-muted-foreground">Loading...</div>;
-  }
+  if (!checked) return <div className="pt-32 text-center text-muted-foreground">Loading...</div>;
 
   if (!isAdmin) {
     return (
       <div className="pt-32 text-center space-y-3">
         <p className="text-muted-foreground">Insufficient privileges.</p>
-        <Button variant="ghost" onClick={signOut}>
-          Sign out
-        </Button>
+        <Button variant="ghost" onClick={signOut}>Sign out</Button>
       </div>
     );
   }
 
   const save = async (d: Draft) => {
+    if (!d.image_url) {
+      toast.error("Please upload an image.");
+      return;
+    }
+
     const payload = {
-      image_url: d.image_url || "/src/assets/product-messenger.jpg",
+      image_url: d.image_url,
       category: d.category || "BAGS",
       price: Number(d.price) || 0,
       in_stock: !!d.in_stock,
@@ -160,9 +157,7 @@ function AdminPage() {
           <h1 className="font-serif text-4xl mt-2">{t("admin_dashboard")}</h1>
         </div>
 
-        <Button variant="ghost" onClick={signOut}>
-          Sign out
-        </Button>
+        <Button variant="ghost" onClick={signOut}>Sign out</Button>
       </div>
 
       <Tabs defaultValue="products" className="mt-10">
@@ -173,10 +168,7 @@ function AdminPage() {
 
         <TabsContent value="products">
           <div className="flex justify-end mt-4">
-            <Button
-              onClick={() => setEditing({ ...empty })}
-              className="bg-gold text-gold-foreground hover:bg-gold/90"
-            >
+            <Button onClick={() => setEditing({ ...empty })} className="bg-gold text-gold-foreground hover:bg-gold/90">
               <Plus className="h-4 w-4 mr-2" />
               {t("add_product")}
             </Button>
@@ -185,20 +177,12 @@ function AdminPage() {
           <div className="mt-6 grid gap-3">
             {(q.data ?? []).map((p) => (
               <div key={p.id} className="glass rounded-xl p-4 flex items-center gap-4">
-                <img
-                  src={resolveImage(p.image_url)}
-                  alt={p.title_en}
-                  className="h-16 w-16 object-cover rounded-lg bg-secondary"
-                />
+                <img src={resolveImage(p.image_url)} alt={p.title_en} className="h-16 w-16 object-cover rounded-lg bg-secondary" />
 
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] tracking-[0.3em] text-muted-foreground">{p.category}</p>
-                  <p className="font-serif text-lg truncate">
-                    {p.title_en} · {p.title_de}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    €{p.price} · qty {p.quantity}
-                  </p>
+                  <p className="font-serif text-lg truncate">{p.title_en} · {p.title_de}</p>
+                  <p className="text-xs text-muted-foreground">€{p.price} · qty {p.quantity}</p>
                 </div>
 
                 <Button variant="ghost" size="icon" onClick={() => setEditing(p)}>
@@ -229,9 +213,7 @@ function AdminPage() {
           {editing && <ProductForm draft={editing} onChange={setEditing} />}
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              {t("cancel")}
-            </Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>{t("cancel")}</Button>
             <Button onClick={() => save(editing!)} className="bg-gold text-gold-foreground hover:bg-gold/90">
               {t("save")}
             </Button>
@@ -244,12 +226,72 @@ function AdminPage() {
 
 function ProductForm({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => void }) {
   const { t } = useI18n();
+  const [uploading, setUploading] = useState(false);
 
   const upd = (patch: Draft) => onChange({ ...draft, ...patch });
 
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+
+    setUploading(true);
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const filePath = `products/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      setUploading(false);
+      toast.error(uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
+
+    upd({ image_url: data.publicUrl });
+    setUploading(false);
+    toast.success("Image uploaded");
+  };
+
   return (
     <div className="space-y-4 py-2">
-      <TextField label={t("image_url")} value={draft.image_url} onChange={(v) => upd({ image_url: v })} />
+      <div>
+        <Label>Product Image</Label>
+
+        {draft.image_url ? (
+          <div className="mt-2 mb-3">
+            <img src={resolveImage(draft.image_url)} alt="Product preview" className="h-40 w-full object-cover rounded-xl border border-border bg-secondary" />
+          </div>
+        ) : null}
+
+        <label className="mt-2 flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-border p-6 text-center hover:bg-secondary/40">
+          <div>
+            <Upload className="mx-auto h-6 w-6 text-gold" />
+            <p className="mt-2 text-sm font-medium">{uploading ? "Uploading..." : "Click to upload image"}</p>
+            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP</p>
+          </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadImage(file);
+            }}
+          />
+        </label>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <TextField label={t("category")} value={draft.category} onChange={(v) => upd({ category: v })} />
