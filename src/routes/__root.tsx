@@ -21,9 +21,11 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
+
         <h2 className="mt-4 text-xl font-semibold text-foreground">
           Page not found
         </h2>
+
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist or has been moved.
         </p>
@@ -143,19 +145,6 @@ export const Route = createRootRouteWithContext<{
         name: "twitter:card",
         content: "summary_large_image",
       },
-      {
-        name: "twitter:title",
-        content: "KAPTAN — Premium Leather & Himalayan Salt Lamps",
-      },
-      {
-        name: "twitter:description",
-        content:
-          "Explore premium leather products and authentic Himalayan salt lamps.",
-      },
-      {
-        name: "twitter:image",
-        content: "/kaptan-logo.png",
-      },
     ],
 
     links: [
@@ -166,16 +155,18 @@ export const Route = createRootRouteWithContext<{
       {
         rel: "icon",
         type: "image/png",
-        href: "/kaptan-favicon.png",
+        sizes: "512x512",
+        href: "/kaptan-favicon-v2.png",
       },
       {
         rel: "shortcut icon",
         type: "image/png",
-        href: "/kaptan-favicon.png",
+        href: "/kaptan-favicon-v2.png",
       },
       {
         rel: "apple-touch-icon",
-        href: "/kaptan-favicon.png",
+        sizes: "512x512",
+        href: "/kaptan-favicon-v2.png",
       },
       {
         rel: "preconnect",
